@@ -1,50 +1,52 @@
-const usuarioService = require('../services/usuario.service');
+const User = require('../models/user.model');
+const { validationResult } = require('express-validator');
 
-const enviarRespuesta = (res, status, exito, mensaje, datos) => {
-  res.status(status).json({ exito, mensaje, ...(datos && { datos }) });
-};
-
-exports.crearUsuario = async (req, res, next) => {
+// Crear nuevo usuario
+exports.createUser = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   try {
-    const usuario = await usuarioService.crearUsuario(req.body);
-    enviarRespuesta(res, 201, true, 'Usuario creado correctamente', usuario);
+    const { name, email, password, age } = req.body;
+    const user = new User({ name, email, password, age });
+    await user.save();
+    res.status(201).json({
+      message: 'Usuario creado exitosamente',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        age: user.age
+      }
+    });
   } catch (err) {
-    next(err);
+    res.status(500).json({ error: 'Error al crear el usuario' });
   }
 };
 
-exports.obtenerUsuarios = async (req, res, next) => {
+// Autenticación de usuario
+exports.loginUser = async (req, res) => {
   try {
-    const usuarios = await usuarioService.obtenerUsuarios();
-    enviarRespuesta(res, 200, true, 'Usuarios obtenidos correctamente', usuarios);
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ error: 'Credenciales inválidas' });
+    }
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Credenciales inválidas' });
+    }
+    res.status(200).json({
+      message: 'Autenticación exitosa',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        age: user.age
+      }
+    });
   } catch (err) {
-    next(err);
-  }
-};
-
-exports.obtenerUsuario = async (req, res, next) => {
-  try {
-    const usuario = await usuarioService.obtenerUsuario(req.params.id);
-    enviarRespuesta(res, 200, true, 'Usuario encontrado', usuario);
-  } catch (err) {
-    next(err);
-  }
-};
-
-exports.actualizarUsuario = async (req, res, next) => {
-  try {
-    const usuario = await usuarioService.actualizarUsuario(req.params.id, req.body);
-    enviarRespuesta(res, 200, true, 'Usuario actualizado', usuario);
-  } catch (err) {
-    next(err);
-  }
-};
-
-exports.eliminarUsuario = async (req, res, next) => {
-  try {
-    await usuarioService.eliminarUsuario(req.params.id);
-    enviarRespuesta(res, 200, true, 'Usuario eliminado');
-  } catch (err) {
-    next(err);
+    res.status(500).json({ error: 'Error en la autenticación' });
   }
 };
