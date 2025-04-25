@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 
 exports.validateUser = [
   body('name').notEmpty().withMessage('El nombre es requerido'),
@@ -15,5 +15,14 @@ exports.validateUser = [
   body('age')
     .optional()
     .isInt({ min: 0 })
-    .withMessage('La edad debe ser un número positivo')
+    .withMessage('La edad debe ser un número positivo'),
+
+  // Esta parte es para verificar si hay errores de validación y devolverlos.
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
 ];
